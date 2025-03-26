@@ -176,21 +176,18 @@ void menu() {
 			case 2: {
 				cout << defaultfloat;
 				table1();
-
 				break;
 			}
 			case 3: {
 				cout << defaultfloat;
 				cout << "Для хорошо обусловленной матрицы\n";
 				table2();
-
 				break;
 			}
 			case 4: {
 				cout << defaultfloat;
 				cout << "Для плохо обусловленной матрицы\n";
 				table3();
-
 				break;
 			}
 			case 5: {
