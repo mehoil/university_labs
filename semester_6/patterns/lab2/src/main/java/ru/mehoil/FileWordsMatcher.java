@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class FileFinderProcessor extends FileProcessor {
+public class FileWordsMatcher extends FileProcessor {
 
     @Override
     protected String processAll(final List<ReadFile> readFiles) {
@@ -18,7 +18,7 @@ public class FileFinderProcessor extends FileProcessor {
                         .anyMatch(firstFileWords::contains)
                 )
                 .map(ReadFile::filename)
-                .collect(Collectors.joining("\n---------------------------\n"));
+                .collect(Collectors.joining(FILES_DELIMITER));
     }
 
 

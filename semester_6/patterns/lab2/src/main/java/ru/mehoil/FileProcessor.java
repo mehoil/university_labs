@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 public abstract class FileProcessor {
 
     private static final int MIN_FILES_COUNT = 2;
+    protected static final String FILES_DELIMITER = "\n------------------------------------------------------\n";
 
     final void processFiles(final List<String> filenames) {
         final var readFiles = readFiles(filenames);

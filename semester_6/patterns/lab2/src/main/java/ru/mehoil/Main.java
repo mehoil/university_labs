@@ -14,7 +14,7 @@ public class Main {
         final var filenames = readFromCommandLine();
         System.err.println("Processing files...");
 
-        final FileProcessor fp = new FileFinderProcessor();
+        final FileProcessor fp = new FileWordsMatcher();
         fp.processFiles(filenames);
 
         System.err.printf("Processed files and wrote to: %s%n", filenames.getLast());
