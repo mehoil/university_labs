@@ -1,0 +1,5 @@
+C:\Users\mehoil\Documents\GitHub\university_labs\semester_6\patterns\lab2\files\firstFile.txt
+---------------------------
+C:\Users\mehoil\Documents\GitHub\university_labs\semester_6\patterns\lab2\files\john.txt
+---------------------------
+C:\Users\mehoil\Documents\GitHub\university_labs\semester_6\patterns\lab2\files\scndFile.txt
