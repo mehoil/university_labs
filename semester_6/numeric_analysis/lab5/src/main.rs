@@ -129,9 +129,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut step = 0;
     let mut steps: Vec<(f64, f64, f64, f64)> = Vec::new();
     steps.push((x, y, 0.0, 0.0));
-
-    writeln!(outfile, "{:.5} {:.5} {:.5}", x, y, 0.0)
-        .expect("Ошибка записи исходной точки");
+    
     println!("Исходные точки: x = {:.5}, y = {:.5}, локальная погрешность = 0.0", x, y);
 
     while (forward && x < end) || (!forward && x > end) {
@@ -145,7 +143,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let y_rk3 = rk3_step(x, y, h_trial, &f);
         let epsilon_trial = (y_rk3 - y_rk2).abs();
 
-        if epsilon_trial <= epsilon || (x + h_trial - end).abs() < EPS {
+        if epsilon_trial <= epsilon || (x + h_trial - end).abs() < EPS || h == h_min {
             x += h_trial;
             y = y_rk2;
             step += 1;
@@ -172,6 +170,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             h = h_epsilon.max(h_min) * if forward { 1.0 } else { -1.0 };
         }
     }
+
+    writeln!(outfile, "{} {} {} {}", steps.len(), inaccurate_points, min_steps, max_steps)
+        .expect("Ошибка записи результатов вычислений");
 
     print_analysis(&steps, end, epsilon, h_min, h_max, inaccurate_points, min_steps, max_steps);
     Ok(())
