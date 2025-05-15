@@ -6,8 +6,8 @@ const EPS: f64 = 1e-10;
 // Runge-Kutta of the 2nd order (solution)
 fn rk2_step(x: f64, y: f64, h: f64, f: &dyn Fn(f64, f64) -> f64) -> f64 {
     let k1 = h * f(x, y);
-    let k2 = h * f(x + h / 2.0, y + k1 / 2.0);
-    y + k2
+    let k2 = h * f(x + h, y + k1);
+    y + (k1 + k2) / 2.0
 }
 
 // Runge-Kutta of the 3rd order (error estimation) 
@@ -92,6 +92,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("C должна быть точкой A или B".into());
     }
     let forward = c == a;
+    let sign = if forward { 1.0 } else { -1.0 };
+    let start = c;
+    let end = if forward { b } else { a };
 
     let line2 = lines.next()
         .expect("Вторая строка отсутствует")
@@ -115,59 +118,81 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("A = {}, B = {}, C = {}, y_c = {}, h_min = {}, h_max = {}, eps = {}",
              a, b, c, y_c, h_min, h_max, epsilon);
 
-    let f = |_x: f64, y: f64| y;
+    let f = |x: f64, y: f64| 2.0 * x + y - x.powi(2);
+
+    /// Прийти к конечной точке (в правый конец) и дальше НЕ ИДТИ! (т.е. прийти прям в точку B)
+    /// интегрировать нужно уметь также справа-налево, а не только слева-направо
+    ///
+    /// Если погрешность на первом шаге больше заданной, откат в x0 y0, и сделать шаг с h_eps
+    ///
+    /// Поправить формулы в отчете
 
     let mut outfile = File::create("rez")
         .expect("Ошибка во время создания файла 'rez'");
 
-    let (mut x, mut y) = if forward { (a, y_c) } else { (b, y_c) };
-    let end = if forward { b } else { a };
+    let mut x = start;
+    let mut y = y_c;
+    let mut h = (b - a).abs() / 10.0 * sign;
+    let mut step = 0;
+    let mut steps: Vec<(f64, f64, f64, f64)> = Vec::new();
     let mut inaccurate_points = 0;
     let mut min_steps = 0;
     let mut max_steps = 0;
-    let mut h = (b - a).abs() / 10.0 * if forward { 1.0 } else { -1.0 };
-    let mut step = 0;
-    let mut steps: Vec<(f64, f64, f64, f64)> = Vec::new();
     steps.push((x, y, 0.0, 0.0));
-    
+
+    println!("Шаг {:2}: x = {:.15}, y = {:.15}, локальная погрешность = 0.0", step, x, y);
     println!("Исходные точки: x = {:.5}, y = {:.5}, локальная погрешность = 0.0", x, y);
 
-    while (forward && x < end) || (!forward && x > end) {
+    let mut first_step = true;
+    while (forward && x < end - EPS) || (!forward && x > end + EPS) {
+        let h_max_possible = end - x;
         let h_trial = if (forward && x + h > end) || (!forward && x + h < end) {
-            end - x
+            h_max_possible
         } else {
             h
-        }.max(h_min);
+        };
 
         let y_rk2 = rk2_step(x, y, h_trial, &f);
         let y_rk3 = rk3_step(x, y, h_trial, &f);
         let epsilon_trial = (y_rk3 - y_rk2).abs();
 
-        if epsilon_trial <= epsilon || (x + h_trial - end).abs() < EPS || h == h_min {
-            x += h_trial;
-            y = y_rk2;
-            step += 1;
-            if epsilon_trial > epsilon {
-                inaccurate_points += 1;
-            }
-            if (h_trial - h_min).abs() < EPS {
-                min_steps += 1;
-            }
-            if (h_trial - h_max).abs() < EPS {
-                max_steps += 1;
-            }
-            steps.push((x, y, epsilon_trial, h_trial));
-            writeln!(outfile, "{:.15} {:.15} {:.15}", x, y, epsilon_trial)
-                .expect("Ошибка записи шага");
-            println!("Шаг {:2}: x = {:.15}, y = {:.15}, локальная погрешность = {:.15}", step, x, y, epsilon_trial);
+        if epsilon_trial <= epsilon || h_trial.abs() <= h_min || (x + h_trial - end).abs() < EPS {
+            let next_x = x + h_trial;
+            if (forward && next_x >= end - EPS) || (!forward && next_x <= end + EPS) {
+                x = end;
+                y = y_rk2;
+                step += 1;
+                steps.push((x, y, epsilon_trial, h_trial));
+                writeln!(outfile, "{:.15} {:.15} {:.15}", x, y, epsilon_trial)?;
+                println!("Шаг {:2}: x = {:.15}, y = {:.15}, локальная погрешность = {:.15}", step, x, y, epsilon_trial);
+                break;
+            } else {
+                x = next_x;
+                y = y_rk2;
+                step += 1;
+                if epsilon_trial > epsilon {
+                    inaccurate_points += 1;
+                }
+                if h_trial.abs() <= h_min + EPS {
+                    min_steps += 1;
+                }
+                if h_trial.abs() >= h_max - EPS {
+                    max_steps += 1;
+                }
+                steps.push((x, y, epsilon_trial, h_trial));
+                writeln!(outfile, "{:.15} {:.15} {:.15}", x, y, epsilon_trial)?;
+                println!("Шаг {:2}: x = {:.15}, y = {:.15}, локальная погрешность = {:.15}", step, x, y, epsilon_trial);
+                first_step = false;
 
-            if (forward && x < end) || (!forward && x > end) {
-                let h_epsilon = 0.9 * h_trial * (epsilon / epsilon_trial).powf(1.0 / 3.0);
-                h = h_epsilon.clamp(h_min, h_max) * if forward { 1.0 } else { -1.0 };
+                let h_epsilon = 0.9 * h_trial.abs() * (epsilon / epsilon_trial).powf(1.0 / 3.0);
+                h = sign * h_epsilon.clamp(h_min, h_max);
             }
         } else {
-            let h_epsilon = 0.9 * h_trial * (epsilon / epsilon_trial).powf(1.0 / 3.0);
-            h = h_epsilon.max(h_min) * if forward { 1.0 } else { -1.0 };
+            if first_step {
+                println!("Первый шаг: погрешность {:.15} > {}, откат к x0, y0", epsilon_trial, epsilon);
+            }
+            let h_epsilon = 0.9 * h_trial.abs() * (epsilon / epsilon_trial).powf(1.0 / 3.0);
+            h = sign * h_epsilon.clamp(h_min, h_max);
         }
     }
 
